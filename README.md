@@ -1,2 +1,2 @@
 # monitor_control
-set monitor gamma value
+set monitor gamma value on win10
