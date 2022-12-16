@@ -1,9 +1,12 @@
+import argparse
 import ctypes
-import numpy
 import sys
+
+import numpy
 
 PRIMARY_MONITOR_ID = 0
 SECONDARY_MONITOR_ID = 1
+
 
 class DisplayDevice(ctypes.Structure):
     _fields_ = [
@@ -38,52 +41,101 @@ def set_ramp_buf(ramp_buf, gamma):
     :return: Modified GammaValue Array
     """
     for i in range(256):
-        iValue = i * (gamma + 128)
-        if iValue > 65535:
-            iValue = 65535
-        ramp_buf[0][i] = ramp_buf[1][i] = ramp_buf[2][i] = iValue
+        j = i * (gamma + 128)
+        if j > 65535:
+            j = 65535
+        ramp_buf[0][i] = ramp_buf[1][i] = ramp_buf[2][i] = j
     return ramp_buf
 
 
-if __name__ == "__main__":
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-r",
+        "--read_gamma",
+        type=int,
+        dest="id",
+        nargs=1,
+        default=[-1],
+        action="store",
+        help="read gamma value, need ID (enum 0, 1, 2)",
+    )
 
+    parser.add_argument(
+        "-s",
+        "--set_gamma",
+        type=int,
+        dest="value",
+        nargs=2,
+        default=[-1, -1],
+        action="store",
+        help="set gamma value, need ID (enum 0, 1, 2) and VALUE (range 0 - 255)",
+    )
+
+    args = parser.parse_args()
+    if (
+        args.id[0] < 0
+        or args.value[0] < 0
+        or (args.value[0] >= 0 and (args.value[1] < 0 or args.value[1] > 255))
+    ):
+        parser.print_help()
+
+    return args.id, args.value
+
+
+# noinspection PyPep8Namin
+
+
+def get_display_gamma(i):
+
+    if i < 0:
+        return -1
+    gamma = -1
+    dd = DisplayDevice()
+    dd.cb = ctypes.sizeof(dd)
+    if EnumDisplayDevicesA(None, i, ctypes.byref(dd), 0):
+        name = ctypes.c_char_p(dd.DeviceName)
+        hdc = CreateDCA(None, name, None, None)
+        if hdc:
+            ramp = ((ctypes.c_ushort * 256) * 3)()
+            if GetDeviceGammaRamp(hdc, ctypes.byref(ramp)):
+                gamma = int(ramp[0][1]) - 128
+            ReleaseDC(name, hdc)
+
+    return gamma
+
+
+def set_display_gamma(i, gamma):
+    if i < 0 or gamma < 0 or gamma > 255:
+        return
+
+    dd = DisplayDevice()
+    dd.cb = ctypes.sizeof(dd)
+    if EnumDisplayDevicesA(None, i, ctypes.byref(dd), 0):
+        name = ctypes.c_char_p(dd.DeviceName)
+        hdc = CreateDCA(None, name, None, None)
+        if hdc:
+            ramp = ((ctypes.c_ushort * 256) * 3)()
+            if GetDeviceGammaRamp(hdc, ctypes.byref(ramp)):
+                set_ramp_buf(ramp, gamma)
+                SetDeviceGammaRamp(hdc, ramp)
+        ReleaseDC(name, hdc)
+
+
+def main():
+    r, w = parse_args()
+    if r[0] >= 0:
+        gamma = get_display_gamma(r[0])
+        print(gamma)
+
+    if w[0] >= 0:
+        set_display_gamma(w[0], w[1])
+
+
+if __name__ == "__main__":
     EnumDisplayDevicesA = ctypes.windll.user32.EnumDisplayDevicesA
     CreateDCA = ctypes.windll.gdi32.CreateDCA
     GetDeviceGammaRamp = ctypes.windll.gdi32.GetDeviceGammaRamp
     SetDeviceGammaRamp = ctypes.windll.gdi32.SetDeviceGammaRamp
     ReleaseDC = ctypes.windll.user32.ReleaseDC
-
-    dev = DisplayDevice()
-    dev.cb = ctypes.sizeof(dev)
-    if not EnumDisplayDevicesA(None, PRIMARY_MONITOR_ID, ctypes.byref(dev), 0):
-        print("failed to enum display list")
-        sys.exit(1)
-
-    # print(dev.DeviceName)
-
-    hwnd = ctypes.c_char_p(dev.DeviceName)
-    hdc = CreateDCA(None, hwnd, None, None)
-
-    if not hdc:
-        print("HDC not found")
-    else:
-        ramp_buf = ((ctypes.c_ushort * 256) * 3)()
-        if GetDeviceGammaRamp(hdc, ctypes.byref(ramp_buf)):
-            # print_ramp(ramp_buf)
-            gamma = int(ramp_buf[0][1]) - 128
-            if len(sys.argv) != 2:
-                print("Please set gamma value [0 - 255] ({:d}):".format(gamma), end=" ")
-                try:
-                    v = int(input())
-                except:
-                    v = -1
-            else:
-                v = int(sys.argv[1]) # can be aby value in 0-255 (as per my system)
-
-            if (v >= 0 and v<=255):
-                gamma = v
-                set_ramp_buf(ramp_buf, gamma)
-                SetDeviceGammaRamp(hdc, ctypes.byref(ramp_buf))
-                ReleaseDC(hwnd, hdc)
-            else:
-                print("invalid value")
+    main()
