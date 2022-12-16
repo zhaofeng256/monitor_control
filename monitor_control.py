@@ -75,7 +75,7 @@ def parse_args():
     args = parser.parse_args()
     if (
         args.id[0] < 0
-        or args.value[0] < 0
+        and args.value[0] < 0
         or (args.value[0] >= 0 and (args.value[1] < 0 or args.value[1] > 255))
     ):
         parser.print_help()
