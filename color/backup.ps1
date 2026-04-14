@@ -1,0 +1,2 @@
+Compress-Archive -Path "C:\Windows\System32\spool\drivers\color\*" -DestinationPath "D:\work\python\monitor_control\color\color.zip" -Force
+ reg export "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ICM" D:\work\python\monitor_control\color\color.reg /y
