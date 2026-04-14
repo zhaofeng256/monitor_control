@@ -11,4 +11,4 @@ while ((Get-Service -Name Wcmsvc).Status -ne 'Running') {
     Start-Sleep -Seconds 1
 }
 Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ICM" -Name "DoReload" -Force
-Write-Host "complete" -ForegroundColor Green
+Write-Host "recovery complete" -ForegroundColor Green
